@@ -1,16 +1,16 @@
 import { client } from './Client';
 import { parseMoneyValueToNumber } from './utils/parseMoneyValueToNumber';
 
+const marketDataStream = client.marketDataStream.marketDataStream();
+
 /**
  * Выдает котировки по figi (пока только usd)
  */
-export class QuoteWatcher {
+export class PriceWatcher {
   price: number | null;
 
   constructor() {
     this.price = null;
-
-    const marketDataStream = client.marketDataStream.marketDataStream();
 
     marketDataStream.write({
       subscribeLastPriceRequest: {
@@ -24,6 +24,14 @@ export class QuoteWatcher {
         const { lastPrice } = value;
 
         this.price = parseMoneyValueToNumber(lastPrice.price);
+      }
+    });
+  }
+
+  callback(callback: (price: number) => void) {
+    marketDataStream.on('data', (value) => {
+      if (value.payload === 'lastPrice') {
+        callback(this.price!);
       }
     });
   }

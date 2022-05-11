@@ -2,47 +2,38 @@ import { client } from './Client';
 import { nanoid } from 'nanoid';
 import { parseNumberToMoneyValue } from './utils/parseNumberToMoneyValue';
 import { PostOrderResponse } from '@tinkoff/invest-js/build/generated/tinkoff/public/invest/api/contract/v1/PostOrderResponse';
-import { log } from './utils/log';
 import { CancelOrderResponse } from '@tinkoff/invest-js/build/generated/tinkoff/public/invest/api/contract/v1/CancelOrderResponse';
-import { PostOrderRequest } from '@tinkoff/invest-js/build/generated/tinkoff/public/invest/api/contract/v1/PostOrderRequest';
+import { OrderState } from '@tinkoff/invest-js/build/generated/tinkoff/public/invest/api/contract/v1/OrderState';
+import { AccountService } from './AccountService';
 
 /**
  * Сервис по обслуживанию функционала торговых поручений (пока только для USD)
  */
 export class OrdersService {
-  constructor() {
-    const ordersStream = client.ordersStream.tradesStream({});
+  readonly accountId: AccountService['id'];
 
-    ordersStream.on('data', (value) => {
-      log(value);
-    });
+  constructor(accountId: AccountService['id']) {
+    this.accountId = accountId;
   }
 
   postOrder(direction: 'BUY' | 'SELL', price: number, quantity: number): Promise<PostOrderResponse | undefined> {
     return new Promise((resolve, reject) => {
-      const argument: PostOrderRequest = {
-        orderId: nanoid(),
-        orderType: 'ORDER_TYPE_LIMIT',
-        figi: process.env.USD_FIGI,
-        price: parseNumberToMoneyValue(price),
-        direction: direction === 'BUY' ? 'ORDER_DIRECTION_BUY' : 'ORDER_DIRECTION_SELL',
-        quantity,
-        accountId: process.env.ACCOUNT_ID,
-      };
-
-      if (process.env.SANDBOX_MODE === '1') {
-        client.sandbox.postSandboxOrder(argument, (error, value) => {
+      client.orders.postOrder(
+        {
+          orderId: nanoid(),
+          orderType: 'ORDER_TYPE_LIMIT',
+          figi: process.env.USD_FIGI,
+          price: parseNumberToMoneyValue(price),
+          direction: direction === 'BUY' ? 'ORDER_DIRECTION_BUY' : 'ORDER_DIRECTION_SELL',
+          quantity,
+          accountId: this.accountId,
+        },
+        (error, value) => {
           if (error) reject(error);
 
           resolve(value);
-        });
-      } else {
-        client.orders.postOrder(argument, (error, value) => {
-          if (error) reject(error);
-
-          resolve(value);
-        });
-      }
+        }
+      );
     });
   }
 
@@ -59,6 +50,24 @@ export class OrdersService {
           if (error) reject(error);
 
           resolve(value);
+        });
+      }
+    });
+  }
+
+  getActiveOrders(): Promise<OrderState[]> {
+    return new Promise((resolve, reject) => {
+      if (process.env.SANDBOX_MODE === '1') {
+        client.sandbox.getSandboxOrders({ accountId: this.accountId }, (error, value) => {
+          if (error) reject(error);
+
+          resolve(value?.orders || []);
+        });
+      } else {
+        client.orders.getOrders({ accountId: this.accountId }, (error, value) => {
+          if (error) reject(error);
+
+          resolve(value?.orders || []);
         });
       }
     });
