@@ -29,9 +29,15 @@ export class Trade {
 
     const ratioValue = 0.1;
 
-    this.priceWatcher.callback((price) => {
+    this.priceWatcher.on((price) => {
       const takeProfit = price * (1 + (ratioValue * threshold.takeProfit) / 100);
       const stopLoss = price * (1 - (ratioValue * threshold.stopLoss) / 100);
+      const quantity = 1000 / price;
+      // console.log('takeProfit', takeProfit, 'stopLoss', stopLoss, 'price', price);
+
+      if (orders.length === 0) {
+        this.ordersService.postOrder('BUY', price, quantity);
+      }
     });
 
     const tradesStream = client.ordersStream.tradesStream({});

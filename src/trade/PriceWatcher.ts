@@ -7,7 +7,7 @@ const marketDataStream = client.marketDataStream.marketDataStream();
  * Выдает котировки по figi (пока только usd)
  */
 export class PriceWatcher {
-  price: number | null;
+  private price: number | null;
 
   constructor() {
     this.price = null;
@@ -18,20 +18,13 @@ export class PriceWatcher {
         instruments: [{ figi: process.env.USD_FIGI }],
       },
     });
-
-    marketDataStream.on('data', (value) => {
-      if (value.payload === 'lastPrice') {
-        const { lastPrice } = value;
-
-        this.price = parseMoneyValueToNumber(lastPrice.price);
-      }
-    });
   }
 
-  callback(callback: (price: number) => void) {
+  on(callback: (price: number) => void) {
     marketDataStream.on('data', (value) => {
       if (value.payload === 'lastPrice') {
-        callback(this.price!);
+        const priceNumber = parseMoneyValueToNumber(value.lastPrice.price);
+        callback(priceNumber);
       }
     });
   }
